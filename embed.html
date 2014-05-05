@@ -1,0 +1,224 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+  <title>Canvas</title>
+  </head>
+  <body>
+  
+	<div id="container"></div>
+	
+	<div style="display:none;" id="audioDiv">
+		<audio id="audio1" style="width:25%" controls="controls">Canvas not supported</audio>		
+	</div>
+
+	
+	<script src="jquery_v1.10.2.min.js"></script>	
+    <script src="kinetic-v5.0.2.min.js"></script>
+    <script>
+		$(function(){	
+	
+			var playState = false; var lastClicked = "";
+			var audioElm = document.getElementById("audio1"); // Audio element
+			var container = $('#container');
+			
+			var maxStageWidth = 1024;
+			var maxStageHeight = 768;
+			var maxPageWidth = 1025;
+			var maxPageHeight = 770;
+			
+			var stage = new Kinetic.Stage({
+				container: 'container',
+				width: maxStageWidth,
+				height: maxStageHeight,
+				scaleX: 1
+			});
+
+			var layer = new Kinetic.Layer();
+			stage.add(layer);
+			
+			maxStageSize();
+			
+			//Sets scale and dimensions of stage to max settings
+			function maxStageSize() {
+				stage.setAttr('scaleX', 1);
+				stage.setAttr('scaleY', 1);
+				stage.setAttr('width', maxStageWidth);
+				stage.setAttr('height', maxStageHeight);
+				stage.draw();
+			};
+			
+			// resize canvas based on width, height
+			var currLocation = window.location.search;			
+			if(currLocation.indexOf("?") != -1){ 
+				var widthParam = getUrlParameters("w", currLocation, true);
+				var heightParam = getUrlParameters("h", currLocation, true);
+				
+				if(widthParam > 0 && heightParam > 0 && widthParam < 1025 && heightParam < 770){
+					$prop = calculateAspectRatioFit(1024, 768, widthParam, heightParam);
+					resizeStage($prop['width'],$prop['height']);
+				}
+			}
+			
+			 // Sets scale and dimensions of stage in relation to window size
+			function resizeStage(nw,nh) {
+			   var horizScalePercentage = nw / maxPageWidth; 
+			   var vertiScalePercentage = nh/ maxPageHeight; 
+
+			   stage.setAttr('scaleX', horizScalePercentage );
+			   stage.setAttr('scaleY', vertiScalePercentage );
+			   stage.setAttr('width', maxStageWidth * horizScalePercentage );
+			   stage.setAttr('height', maxStageHeight * vertiScalePercentage );
+			   stage.draw();
+			};	
+
+			// loading background image
+			var bgImageObj = new Image();		
+			bgImageObj.onload = function() {
+				var image = new Kinetic.Image({
+					x: 0,
+					y: 0,
+					image: bgImageObj,
+					width: maxStageWidth,
+					height: maxStageHeight
+				});
+
+				layer.add(image);
+				layer.draw();
+				
+				image.moveToBottom();
+				loadPlayIcons();
+			};
+			bgImageObj.src = 'bg.png';
+			 
+			function loadPlayIcons(){
+				var sources = {
+					sticker1: {'x':'380','y':'200','id':'sticker1','fileSrc':'audio.mp3'},
+					sticker2: {'x':'745','y':'150','id':'sticker2','fileSrc':'Applause.mp3'}
+				};
+				var group = new Kinetic.Group();
+				
+				// loading multiple play icons
+				$.each(sources, function(key, value){
+					$('#audioDiv').append('<input type="text" id="audio'+value['id']+'" value="'+value['fileSrc']+'" />');
+					var imageObj = new Image();
+					imageObj.onload = function() {
+						var playImage = new Kinetic.Image({
+							x: value['x'],
+							y: value['y'],
+							image: imageObj,
+							width: 74,
+							height: 74,
+							id: value['id']
+						});
+						
+						playImage.on('mouseover', function(){
+							document.body.style.cursor = "pointer";
+						});
+						
+						playImage.on('mouseout', function(){
+							document.body.style.cursor = "default";
+						});
+
+						// add the shape to the layer
+						group.add(playImage);
+						layer.draw();
+					};
+					imageObj.src = 'play.png';
+				});
+					
+				layer.add(group);
+			}
+
+			var pauseImageObj = new Image();
+			pauseImageObj.src = 'pause.png';
+			
+			var playImageObj = new Image();
+			playImageObj.src = 'play.png';
+			
+			
+			// binding events to play, pause icons for player
+			layer.on('click', function(evt) {
+				var shape = evt.target;
+				// if already playing, stop it and change to play button
+				if(lastClicked != "" && lastClicked != shape.getId()){
+					layer.get('#'+lastClicked).setImage(playImageObj);
+					playState = false;
+				}
+				
+				lastClicked = shape.getId();				
+				
+				// start playing
+				if(playState == false){
+					layer.get('#'+lastClicked).setImage(pauseImageObj);
+					audioElm.src = $('#audio'+lastClicked).val();
+					playState = true;
+				}else{
+				// stop playing
+					layer.get('#'+lastClicked).setImage(playImageObj);
+					playState = false;
+				}
+				   layer.draw();
+				   togglePlay();
+				
+			});
+			
+			// calculate image dimensions with ratio
+			function calculateAspectRatioFit(srcWidth, srcHeight, maxWidth, maxHeight) {
+
+				var ratio = Math.min(maxWidth / srcWidth, maxHeight / srcHeight);
+
+				return { width: srcWidth*ratio, height: srcHeight*ratio };
+			 }			
+
+
+			 
+			// Play, pause section		   
+			function togglePlay() {
+				if (audioElm.paused == true) {
+					playAudio(audioElm);
+				}else {
+					pauseAudio(audioElm);
+				}
+			}
+
+			function playAudio(audioElm) {
+				audioElm.play();			
+			}
+
+			function pauseAudio(audioElm) {
+				audioElm.pause();
+			}
+			
+			// change states on end of the sound
+			$("#audio1").bind('ended', function(){
+				layer.get('#'+lastClicked).setImage(playImageObj);
+				lastClicked = "";
+				layer.draw();
+				playState = false;
+			});
+			
+		});
+		// get url parameters (width, height)
+		function getUrlParameters(parameter, currLocation, decode){
+			var parArr = currLocation.split("?")[1].split("&"),
+			returnBool = true;
+		   
+			for(var i = 0; i < parArr.length; i++){
+				parr = parArr[i].split("=");
+				if(parr[0] == parameter){
+					return (decode) ? decodeURIComponent(parr[1]) : parr[1];
+					returnBool = true;
+				}else{
+					returnBool = false;            
+				}
+			}
+		   if(!returnBool) return false;  
+		}	
+
+
+		
+		
+    </script>	
+	
+  </body>
+</html>

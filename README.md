@@ -1,2 +1,2 @@
-embed_canvas
-============
+Embeddable Canvas
+=================
